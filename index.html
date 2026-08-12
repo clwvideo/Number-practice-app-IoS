@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Say the Number">
+<title>Say the Number</title>
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23FF5A5F'/%3E%3Ctext x='50' y='68' font-size='58' font-family='Arial,Helvetica,sans-serif' font-weight='900' fill='white' text-anchor='middle'%3E123%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: -apple-system, "SF Pro Rounded", "Helvetica Neue", Arial, sans-serif;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 90px 20px 70px;
+    box-sizing: border-box;
+    transition: background-color 0.25s ease;
+  }
+  #number {
+    font-weight: 900;
+    color: #fff;
+    letter-spacing: 0.02em;
+    text-shadow: 0 6px 0 rgba(0,0,0,0.15), 0 12px 24px rgba(0,0,0,0.25);
+    transform: scale(1);
+    transition: transform 0.12s ease;
+    line-height: 1;
+    white-space: nowrap;
+    text-align: center;
+  }
+  #number.pulse {
+    transform: scale(1.08);
+  }
+  #hint {
+    position: fixed;
+    bottom: env(safe-area-inset-bottom, 18px);
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255,255,255,0.85);
+    font-size: 16px;
+    font-weight: 600;
+    text-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  }
+  #gear {
+    position: fixed;
+    top: calc(env(safe-area-inset-top, 12px) + 14px);
+    right: calc(env(safe-area-inset-right, 12px) + 14px);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    cursor: pointer;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+  }
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 30;
+    padding: 24px;
+  }
+  #overlay.open { display: flex; }
+  #panel {
+    background: #1c1c1e;
+    border-radius: 24px;
+    padding: 28px 24px 24px;
+    width: 100%;
+    max-width: 340px;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  #panel h2 {
+    color: #fff;
+    font-size: 20px;
+    margin: 0 0 4px;
+  }
+  #panel p {
+    color: rgba(255,255,255,0.6);
+    font-size: 14px;
+    margin: 0 0 20px;
+  }
+  #digitGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 22px;
+  }
+  .digitBtn {
+    aspect-ratio: 1;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid transparent;
+    cursor: pointer;
+  }
+  .digitBtn.selected {
+    background: #FF5A5F;
+    border-color: #fff;
+  }
+  #doneBtn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 14px;
+    background: #FF5A5F;
+    color: #fff;
+    font-size: 17px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="number">123</div>
+  </div>
+  <div id="hint">Tap anywhere for a new number</div>
+  <div id="gear">⚙️</div>
+
+  <div id="overlay">
+    <div id="panel">
+      <h2>Max Digits</h2>
+      <p>Numbers will have up to this many digits</p>
+      <div id="digitGrid"></div>
+      <div id="doneBtn">Done</div>
+    </div>
+  </div>
+
+<script>
+  const COLORS = ['#FF5A5F', '#3A86FF', '#06D6A0', '#FFB703', '#8338EC', '#FB5607', '#118AB2', '#EF476F'];
+  const STORAGE_KEY = 'sayTheNumber.maxDigits';
+
+  const stage = document.getElementById('stage');
+  const numberEl = document.getElementById('number');
+  const gear = document.getElementById('gear');
+  const overlay = document.getElementById('overlay');
+  const digitGrid = document.getElementById('digitGrid');
+  const doneBtn = document.getElementById('doneBtn');
+
+  let maxDigits = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+  if (!maxDigits || maxDigits < 1 || maxDigits > 7) maxDigits = 3;
+
+  function randomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function generateNumber() {
+    const digitCount = randomInt(1, maxDigits);
+    const min = digitCount === 1 ? 0 : Math.pow(10, digitCount - 1);
+    const max = Math.pow(10, digitCount) - 1;
+    return randomInt(min, max);
+  }
+
+  function fitNumberText() {
+    const maxWidth = window.innerWidth - 48;
+    const maxHeight = window.innerHeight - 200;
+    let fontSize = Math.min(window.innerWidth, window.innerHeight) * 0.6;
+    numberEl.style.fontSize = fontSize + 'px';
+    while (fontSize > 12 && (numberEl.scrollWidth > maxWidth || numberEl.scrollHeight > maxHeight)) {
+      fontSize -= 2;
+      numberEl.style.fontSize = fontSize + 'px';
+    }
+  }
+
+  function showNewNumber() {
+    numberEl.textContent = generateNumber().toLocaleString('en-US');
+    fitNumberText();
+    stage.style.backgroundColor = COLORS[randomInt(0, COLORS.length - 1)];
+    numberEl.classList.remove('pulse');
+    void numberEl.offsetWidth;
+    numberEl.classList.add('pulse');
+  }
+
+  window.addEventListener('resize', fitNumberText);
+
+  function buildDigitGrid() {
+    digitGrid.innerHTML = '';
+    for (let i = 1; i <= 7; i++) {
+      const btn = document.createElement('div');
+      btn.className = 'digitBtn' + (i === maxDigits ? ' selected' : '');
+      btn.textContent = i;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        maxDigits = i;
+        localStorage.setItem(STORAGE_KEY, String(maxDigits));
+        buildDigitGrid();
+      });
+      digitGrid.appendChild(btn);
+    }
+  }
+
+  stage.addEventListener('click', showNewNumber);
+
+  gear.addEventListener('click', (e) => {
+    e.stopPropagation();
+    buildDigitGrid();
+    overlay.classList.add('open');
+  });
+
+  doneBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    overlay.classList.remove('open');
+  });
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+
+  showNewNumber();
+</script>
+</body>
+</html>
