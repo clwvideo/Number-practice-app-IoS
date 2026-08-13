@@ -1,1 +1,1 @@
-Generates a random number up to 7 digits.  Helps children practice saying number out aloud.  User can change max number of digits via gear icon.
+Generates a random number up to 7 digits.  Helps children practice saying number out aloud.  The question mark at the bottom will say the number aloud so that the user can check themselves.  User can change max number of digits via gear icon.
