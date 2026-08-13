@@ -29,7 +29,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 90px 20px 70px;
+    padding: 90px 20px 90px;
     box-sizing: border-box;
     transition: background-color 0.25s ease;
   }
@@ -61,6 +61,22 @@
   #gear {
     position: fixed;
     top: calc(env(safe-area-inset-top, 12px) + 14px);
+    right: calc(env(safe-area-inset-right, 12px) + 14px);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    cursor: pointer;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+  }
+  #speakBtn {
+    position: fixed;
+    bottom: calc(env(safe-area-inset-bottom, 12px) + 14px);
     right: calc(env(safe-area-inset-right, 12px) + 14px);
     width: 50px;
     height: 50px;
@@ -145,6 +161,7 @@
   </div>
   <div id="hint">Tap anywhere for a new number</div>
   <div id="gear">⚙️</div>
+  <div id="speakBtn">❓</div>
 
   <div id="overlay">
     <div id="panel">
@@ -165,9 +182,11 @@
   const overlay = document.getElementById('overlay');
   const digitGrid = document.getElementById('digitGrid');
   const doneBtn = document.getElementById('doneBtn');
+  const speakBtn = document.getElementById('speakBtn');
 
   let maxDigits = parseInt(localStorage.getItem(STORAGE_KEY), 10);
   if (!maxDigits || maxDigits < 1 || maxDigits > 7) maxDigits = 3;
+  let currentNumber = 0;
 
   function randomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -192,12 +211,20 @@
   }
 
   function showNewNumber() {
-    numberEl.textContent = generateNumber().toLocaleString('en-US');
+    currentNumber = generateNumber();
+    numberEl.textContent = currentNumber.toLocaleString('en-US');
     fitNumberText();
     stage.style.backgroundColor = COLORS[randomInt(0, COLORS.length - 1)];
     numberEl.classList.remove('pulse');
     void numberEl.offsetWidth;
     numberEl.classList.add('pulse');
+  }
+
+  function speakNumber() {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(String(currentNumber));
+    window.speechSynthesis.speak(utterance);
   }
 
   window.addEventListener('resize', fitNumberText);
@@ -229,6 +256,11 @@
   doneBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     overlay.classList.remove('open');
+  });
+
+  speakBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    speakNumber();
   });
 
   overlay.addEventListener('click', (e) => {
